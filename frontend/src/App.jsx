@@ -9,6 +9,7 @@ import ProductDetail from './pages/ProductDetail';
 import Cart from './pages/Cart';
 import Orders from './pages/Orders';
 import AdminDashboard from './pages/AdminDashboard';
+import ManageCoupons from './pages/Admin/ManageCoupons';
 import RestaurantDashboard from './pages/restaurant/RestaurantDashboard';
 import RestaurantList from './pages/RestaurantList';
 import RestaurantDetail from './pages/RestaurantDetail';
@@ -20,6 +21,7 @@ import PaymentFailure from './pages/PaymentFailure';
 import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import PendingApproval from './pages/PendingApproval';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -45,9 +47,11 @@ function App() {
           <Route path="/payment/success" element={<PaymentSuccess />} />
           <Route path="/payment/failure" element={<PaymentFailure />} />
           <Route path="/payment/failure" element={<PaymentFailure />} />
+          <Route path="/pending-approval" element={<PendingApproval />} />
           <Route path="/restaurants" element={<RestaurantList />} />
           <Route path="/restaurants/:id" element={<RestaurantDetail />} />
           <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
+          <Route path="/admin/coupons" element={<ProtectedRoute adminOnly><ManageCoupons /></ProtectedRoute>} />
           <Route path="/restaurant/dashboard" element={
             <ProtectedRoute allowedRoles={['restaurant']}>
               <RestaurantDashboard />

@@ -68,6 +68,9 @@ const AdminDashboard = () => {
         maxDiscount: ''
     });
 
+    const [editingCoupon, setEditingCoupon] = useState(null);
+    const [editingRestaurant, setEditingRestaurant] = useState(null); // Edit State for Restaurant
+
     const [imageMethod, setImageMethod] = useState('url'); // 'url' or 'upload'
 
     const handleFileUpload = async (e, callback) => {
@@ -93,7 +96,7 @@ const AdminDashboard = () => {
 
     const fetchData = async () => {
         try {
-            const [prodRes, orderRes, userRes, statsRes, restRes, couponRes] = await Promise.all([
+            const results = await Promise.allSettled([
                 api.get('/products'),
                 api.get('/admin/orders'),
                 api.get('/admin/users'),
@@ -101,14 +104,29 @@ const AdminDashboard = () => {
                 api.get('/admin/restaurants'),
                 api.get('/coupons/all')
             ]);
-            setProducts(prodRes.data);
-            setOrders(orderRes.data);
-            setUsers(userRes.data);
-            setStats(statsRes.data);
-            setRestaurants(restRes.data);
-            setCoupons(couponRes.data);
+
+            const [prodRes, orderRes, userRes, statsRes, restRes, couponRes] = results;
+
+            if (prodRes.status === 'fulfilled') setProducts(prodRes.value.data);
+            else console.error('Products fetch failed:', prodRes.reason);
+
+            if (orderRes.status === 'fulfilled') setOrders(orderRes.value.data);
+            else console.error('Orders fetch failed:', orderRes.reason);
+
+            if (userRes.status === 'fulfilled') setUsers(userRes.value.data);
+            else console.error('Users fetch failed:', userRes.reason);
+
+            if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
+            else console.error('Stats fetch failed:', statsRes.reason);
+
+            if (restRes.status === 'fulfilled') setRestaurants(restRes.value.data);
+            else console.error('Restaurants fetch failed:', restRes.reason);
+
+            if (couponRes.status === 'fulfilled') setCoupons(couponRes.value.data);
+            else console.error('Coupons fetch failed:', couponRes.reason);
+
         } catch (err) {
-            console.error(err);
+            console.error('Dashboard fetch error:', err);
         } finally {
             setLoading(false);
         }
@@ -420,7 +438,42 @@ const AdminDashboard = () => {
         }
     };
 
+    const handleUpdateRestaurant = async (e) => {
+        e.preventDefault();
+        try {
+            await api.put(`/admin/restaurants/${editingRestaurant._id}`, editingRestaurant);
+            alert('Restaurant Updated!');
+            setEditingRestaurant(null);
+            fetchData();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Error updating restaurant');
+        }
+    };
+
+    const handleDeleteRestaurant = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this restaurant? This cannot be undone.')) return;
+        try {
+            await api.delete(`/admin/restaurants/${id}`);
+            alert('Restaurant Deleted Successfully');
+            fetchData();
+        } catch (err) {
+            alert(err.response?.data?.message || 'Error deleting restaurant');
+        }
+    };
+
     // --- COUPON HANDLERS ---
+    const handleUpdateCoupon = async (e) => {
+        e.preventDefault();
+        try {
+            await api.put(`/coupons/${editingCoupon._id}`, editingCoupon);
+            alert('Coupon Updated!');
+            setEditingCoupon(null);
+            fetchData();
+        } catch (err) {
+            alert('Error updating coupon');
+        }
+    };
+
     const handleCreateCoupon = async (e) => {
         e.preventDefault();
         try {
@@ -1336,7 +1389,16 @@ const AdminDashboard = () => {
 
                 {activeTab === 'restaurants' && (
                     <div className="space-y-6">
-                        <h1 className="text-2xl font-bold text-gray-900">Restaurant Management</h1>
+                        <div className="flex justify-between items-center">
+                            <h1 className="text-2xl font-bold text-gray-900">Restaurant Management</h1>
+                            <button
+                                onClick={() => document.getElementById('addRestaurantForm').scrollIntoView({ behavior: 'smooth' })}
+                                className="bg-orange-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-orange-700"
+                            >
+                                <Plus className="w-4 h-4" /> Add Restaurant
+                            </button>
+                        </div>
+
                         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                             <table className="w-full text-left">
                                 <thead className="bg-gray-50 border-b border-gray-200">
@@ -1384,17 +1446,207 @@ const AdminDashboard = () => {
                                                     </button>
                                                 )}
                                                 <button
+                                                    onClick={() => setEditingRestaurant({
+                                                        _id: r._id,
+                                                        name: r.name,
+                                                        email: r.email,
+                                                        restaurantName: r.restaurantDetails?.restaurantName,
+                                                        phone: r.restaurantDetails?.phone,
+                                                        cuisine: Array.isArray(r.restaurantDetails?.cuisine) ? r.restaurantDetails.cuisine.join(', ') : '',
+                                                        address: r.restaurantDetails?.address?.city || ''
+                                                    })}
+                                                    className="text-blue-500 hover:text-blue-700 bg-blue-50 p-2 rounded-lg"
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 className="w-5 h-5" />
+                                                </button>
+                                                <button
                                                     onClick={() => handleToggleRestaurantStatus(r._id)}
                                                     className={`p-2 rounded-lg ${r.restaurantDetails?.isActive ? 'text-red-600 hover:text-red-800 bg-red-50' : 'text-green-600 hover:text-green-800 bg-green-50'}`}
                                                     title={r.restaurantDetails?.isActive ? 'Deactivate' : 'Activate'}
                                                 >
                                                     {r.restaurantDetails?.isActive ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
                                                 </button>
+                                                <button
+                                                    onClick={() => handleDeleteRestaurant(r._id)}
+                                                    className="p-2 rounded-lg text-red-600 hover:text-red-800 bg-red-50"
+                                                    title="Delete Restaurant"
+                                                >
+                                                    <Trash2 className="w-5 h-5" />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* Edit Restaurant Modal */}
+                        {editingRestaurant && (
+                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h2 className="text-xl font-bold text-gray-900">Edit Restaurant</h2>
+                                        <button onClick={() => setEditingRestaurant(null)} className="text-gray-400 hover:text-gray-600">
+                                            <X className="w-6 h-6" />
+                                        </button>
+                                    </div>
+                                    <form onSubmit={handleUpdateRestaurant} className="space-y-6">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Owner Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={editingRestaurant.name || ''}
+                                                    onChange={e => setEditingRestaurant({ ...editingRestaurant, name: e.target.value })}
+                                                    className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                                                <input
+                                                    type="email"
+                                                    value={editingRestaurant.email || ''}
+                                                    onChange={e => setEditingRestaurant({ ...editingRestaurant, email: e.target.value })}
+                                                    className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant Name</label>
+                                                <input
+                                                    type="text"
+                                                    value={editingRestaurant.restaurantName || ''}
+                                                    onChange={e => setEditingRestaurant({ ...editingRestaurant, restaurantName: e.target.value })}
+                                                    className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                                                <input
+                                                    type="text"
+                                                    value={editingRestaurant.phone || ''}
+                                                    onChange={e => setEditingRestaurant({ ...editingRestaurant, phone: e.target.value })}
+                                                    className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Cuisine (comma separated)</label>
+                                                <input
+                                                    type="text"
+                                                    value={editingRestaurant.cuisine || ''}
+                                                    onChange={e => setEditingRestaurant({ ...editingRestaurant, cuisine: e.target.value })}
+                                                    className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Address (City)</label>
+                                                <input
+                                                    type="text"
+                                                    value={editingRestaurant.address || ''}
+                                                    onChange={e => setEditingRestaurant({ ...editingRestaurant, address: e.target.value })}
+                                                    className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3 pt-4 border-t">
+                                            <button
+                                                type="button"
+                                                onClick={() => setEditingRestaurant(null)}
+                                                className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50"
+                                            >
+                                                Cancel
+                                            </button>
+                                            <button
+                                                type="submit"
+                                                className="flex-1 bg-orange-600 text-white px-4 py-2.5 rounded-lg font-medium hover:bg-orange-700"
+                                            >
+                                                Update Restaurant
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Create Restaurant Form */}
+                        <div id="addRestaurantForm" className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mt-8">
+                            <h2 className="text-lg font-bold text-gray-900 mb-4">Add New Restaurant</h2>
+                            <form onSubmit={handleCreateRestaurant} className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Owner Name</label>
+                                        <input
+                                            type="text"
+                                            value={newRestaurant.name}
+                                            onChange={e => setNewRestaurant({ ...newRestaurant, name: e.target.value })}
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Owner Email</label>
+                                        <input
+                                            type="email"
+                                            value={newRestaurant.email}
+                                            onChange={e => setNewRestaurant({ ...newRestaurant, email: e.target.value })}
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                        <input
+                                            type="password"
+                                            value={newRestaurant.password}
+                                            onChange={e => setNewRestaurant({ ...newRestaurant, password: e.target.value })}
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                            required
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Restaurant Name</label>
+                                        <input
+                                            type="text"
+                                            value={newRestaurant.restaurantName}
+                                            onChange={e => setNewRestaurant({ ...newRestaurant, restaurantName: e.target.value })}
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                                        <input
+                                            type="text"
+                                            value={newRestaurant.phone}
+                                            onChange={e => setNewRestaurant({ ...newRestaurant, phone: e.target.value })}
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Cuisine (comma separated)</label>
+                                        <input
+                                            type="text"
+                                            value={newRestaurant.cuisine}
+                                            onChange={e => setNewRestaurant({ ...newRestaurant, cuisine: e.target.value })}
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Address (City)</label>
+                                        <input
+                                            type="text"
+                                            value={newRestaurant.address}
+                                            onChange={e => setNewRestaurant({ ...newRestaurant, address: e.target.value })}
+                                            className="w-full p-2.5 border border-gray-300 rounded-lg"
+                                        />
+                                    </div>
+                                </div>
+                                <button
+                                    type="submit"
+                                    className="w-full bg-orange-600 text-white py-2.5 rounded-lg font-medium hover:bg-orange-700"
+                                >
+                                    Create Restaurant
+                                </button>
+                            </form>
                         </div>
                     </div>
                 )}
@@ -1428,7 +1680,10 @@ const AdminDashboard = () => {
                                                     {c.isActive ? 'Active' : 'Inactive'}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4">
+                                            <td className="px-6 py-4 flex gap-2">
+                                                <button onClick={() => setEditingCoupon(c)} className="text-blue-500 hover:text-blue-700">
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
                                                 <button onClick={() => handleDeleteCoupon(c._id)} className="text-red-500 hover:text-red-700">
                                                     <Trash2 className="w-4 h-4" />
                                                 </button>
@@ -1438,6 +1693,76 @@ const AdminDashboard = () => {
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Edit Coupon Modal */}
+                        {editingCoupon && (
+                            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-xl p-6 w-full max-w-md">
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-lg font-bold">Edit Coupon</h2>
+                                        <button onClick={() => setEditingCoupon(null)}><X className="w-6 h-6" /></button>
+                                    </div>
+                                    <form onSubmit={handleUpdateCoupon} className="space-y-4">
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Code</label>
+                                                <input
+                                                    type="text"
+                                                    value={editingCoupon.code}
+                                                    onChange={e => setEditingCoupon({ ...editingCoupon, code: e.target.value.toUpperCase() })}
+                                                    className="w-full p-2 border rounded uppercase"
+                                                    required
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Discount (%)</label>
+                                                <input
+                                                    type="number"
+                                                    value={editingCoupon.discountPercent}
+                                                    onChange={e => setEditingCoupon({ ...editingCoupon, discountPercent: e.target.value })}
+                                                    className="w-full p-2 border rounded"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                                            <input
+                                                type="text"
+                                                value={editingCoupon.description}
+                                                onChange={e => setEditingCoupon({ ...editingCoupon, description: e.target.value })}
+                                                className="w-full p-2 border rounded"
+                                            />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Min Order</label>
+                                                <input
+                                                    type="number"
+                                                    value={editingCoupon.minOrderAmount || ''}
+                                                    onChange={e => setEditingCoupon({ ...editingCoupon, minOrderAmount: e.target.value })}
+                                                    className="w-full p-2 border rounded"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Valid Until</label>
+                                                <input
+                                                    type="date"
+                                                    value={editingCoupon.validTo ? new Date(editingCoupon.validTo).toISOString().split('T')[0] : ''}
+                                                    onChange={e => setEditingCoupon({ ...editingCoupon, validTo: e.target.value })}
+                                                    className="w-full p-2 border rounded"
+                                                    required
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-2 pt-2">
+                                            <button type="button" onClick={() => setEditingCoupon(null)} className="flex-1 px-4 py-2 border rounded hover:bg-gray-50">Cancel</button>
+                                            <button type="submit" className="flex-1 bg-orange-600 text-white py-2 rounded hover:bg-orange-700">Update</button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Create Coupon Form */}
                         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mt-8 max-w-2xl">

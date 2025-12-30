@@ -27,4 +27,13 @@ export const orderAPI = {
     getById: (id) => api.get(`/orders/${id}`)
 };
 
+// Admin API
+export const adminAPI = {
+    getDashboard: () => api.get('/admin/dashboard'),
+    getCoupons: () => api.get('/coupons/all'),
+    createCoupon: (data) => api.post('/coupons', data),
+    updateCoupon: (id, data) => api.put(`/coupons/${id}`, data),
+    deleteCoupon: (id) => api.delete(`/coupons/${id}`)
+};
+
 export default api;

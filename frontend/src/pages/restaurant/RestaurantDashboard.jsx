@@ -114,6 +114,25 @@ const RestaurantDashboard = () => {
         }
     };
 
+    const [imageMethod, setImageMethod] = useState('url'); // 'url' or 'upload'
+
+    const handleFileUpload = async (e, callback) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+            const res = await api.post('/upload', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+            callback(res.data.imageUrl);
+        } catch (err) {
+            alert('Upload failed');
+        }
+    };
+
     const handleLogout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
@@ -601,13 +620,33 @@ const RestaurantDashboard = () => {
                                         </div>
                                         <div className="space-y-4">
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                                                <input
-                                                    type="text"
-                                                    value={editingProduct ? editingProduct.image : newProduct.image}
-                                                    onChange={e => editingProduct ? setEditingProduct({ ...editingProduct, image: e.target.value }) : setNewProduct({ ...newProduct, image: e.target.value })}
-                                                    className="w-full p-2 border rounded-lg"
-                                                />
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">Image Source</label>
+                                                <div className="flex gap-4 mb-2">
+                                                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                                        <input type="radio" checked={imageMethod === 'url'} onChange={() => setImageMethod('url')} className="text-orange-600 focus:ring-orange-500" />
+                                                        <span>URL</span>
+                                                    </label>
+                                                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                                                        <input type="radio" checked={imageMethod === 'upload'} onChange={() => setImageMethod('upload')} className="text-orange-600 focus:ring-orange-500" />
+                                                        <span>Upload</span>
+                                                    </label>
+                                                </div>
+                                                {imageMethod === 'url' ? (
+                                                    <input
+                                                        type="text"
+                                                        value={editingProduct ? editingProduct.image : newProduct.image}
+                                                        onChange={e => editingProduct ? setEditingProduct({ ...editingProduct, image: e.target.value }) : setNewProduct({ ...newProduct, image: e.target.value })}
+                                                        className="w-full p-2 border rounded-lg"
+                                                        placeholder="Image URL"
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={(e) => handleFileUpload(e, (url) => editingProduct ? setEditingProduct({ ...editingProduct, image: url }) : setNewProduct({ ...newProduct, image: url }))}
+                                                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+                                                    />
+                                                )}
                                             </div>
                                             <div>
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Categories (comma separated)</label>

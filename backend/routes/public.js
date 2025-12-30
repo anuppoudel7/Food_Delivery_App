@@ -26,6 +26,18 @@ router.get('/restaurants', async (req, res) => {
             .populate('userId', 'name email')
             .sort({ rating: -1 });
 
+        console.log('Public Restaurants Debug:');
+        console.log('Filter:', JSON.stringify(filter));
+        console.log('Found Count:', restaurants.length);
+        if (restaurants.length > 0) {
+            console.log('Sample Restaurant:', JSON.stringify(restaurants[0], null, 2));
+        } else {
+            console.log('No restaurants found matching filter');
+            // Double check total count in DB
+            const total = await Restaurant.countDocuments();
+            console.log('Total Restaurants is DB Collection:', total);
+        }
+
         // Transform to match expected frontend structure
         const transformedRestaurants = restaurants.map(r => ({
             _id: r._id,

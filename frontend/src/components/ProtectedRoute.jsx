@@ -19,6 +19,11 @@ const ProtectedRoute = ({ children, adminOnly, allowedRoles }) => {
     return <Navigate to="/" />;
   }
 
+  // Check for restaurant approval
+  if (user.role === 'restaurant' && !user.isApproved && !adminOnly) {
+    return <Navigate to="/pending-approval" />;
+  }
+
   return children;
 };
 

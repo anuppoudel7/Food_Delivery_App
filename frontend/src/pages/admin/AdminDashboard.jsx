@@ -1,7 +1,7 @@
 // frontend/src/pages/admin/AdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Users, ShoppingBag, Store, Package, TrendingUp, DollarSign } from 'lucide-react';
+import { Users, ShoppingBag, Store, Package, TrendingUp, DollarSign, Ticket } from 'lucide-react';
 import { adminAPI } from '../../services/api';
 
 const AdminDashboard = () => {
@@ -83,6 +83,12 @@ const AdminDashboard = () => {
             <h3 className="text-lg font-semibold mb-2">Manage Orders</h3>
             <p className="text-gray-600 text-sm">Track and update order status</p>
           </Link>
+
+          <Link to="/admin/coupons" className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+            <Ticket className="w-8 h-8 text-primary-500 mb-3" />
+            <h3 className="text-lg font-semibold mb-2">Manage Coupons</h3>
+            <p className="text-gray-600 text-sm">Create and track discounts</p>
+          </Link>
         </div>
 
         {/* Recent Orders */}
@@ -108,11 +114,10 @@ const AdminDashboard = () => {
                     <td className="py-3 px-4">{order.userId?.name || 'N/A'}</td>
                     <td className="py-3 px-4 font-semibold">${order.total.toFixed(2)}</td>
                     <td className="py-3 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${
-                        order.status === 'delivered' ? 'bg-green-100 text-green-800' :
+                      <span className={`px-2 py-1 rounded-full text-xs ${order.status === 'delivered' ? 'bg-green-100 text-green-800' :
                         order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                        'bg-yellow-100 text-yellow-800'
-                      }`}>
+                          'bg-yellow-100 text-yellow-800'
+                        }`}>
                         {order.status}
                       </span>
                     </td>
@@ -126,7 +131,7 @@ const AdminDashboard = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 

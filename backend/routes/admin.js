@@ -3,6 +3,7 @@ const router = express.Router();
 const Product = require('../models/Product');
 const User = require('../models/User');
 const Order = require('../models/Order');
+const Restaurant = require('../models/Restaurant');
 const auth = require('../middleware/auth');
 const bcrypt = require('bcryptjs');
 
@@ -179,6 +180,25 @@ router.put('/restaurants/:id/approve', auth, adminAuth, async (req, res) => {
         user.restaurantDetails.isActive = true;
         await user.save();
 
+        // Sync with Restaurant collection
+        let restaurant = await Restaurant.findOne({ userId: user._id });
+        if (restaurant) {
+            restaurant.isApproved = true;
+            restaurant.isActive = true;
+            await restaurant.save();
+        } else {
+            // Create if missing
+            await Restaurant.create({
+                userId: user._id,
+                restaurantName: user.restaurantDetails.restaurantName,
+                address: user.restaurantDetails.address,
+                phone: user.restaurantDetails.phone,
+                cuisine: user.restaurantDetails.cuisine,
+                isApproved: true,
+                isActive: true
+            });
+        }
+
         res.json(user);
     } catch (err) {
         res.status(500).json({ message: 'Server Error', error: err.message });
@@ -195,6 +215,13 @@ router.put('/restaurants/:id/toggle-status', auth, adminAuth, async (req, res) =
 
         user.restaurantDetails.isActive = !user.restaurantDetails.isActive;
         await user.save();
+
+        // Sync with Restaurant collection
+        let restaurant = await Restaurant.findOne({ userId: user._id });
+        if (restaurant) {
+            restaurant.isActive = user.restaurantDetails.isActive;
+            await restaurant.save();
+        }
 
         res.json(user);
     } catch (err) {
@@ -213,31 +240,127 @@ router.post('/restaurants', auth, adminAuth, async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const passwordHash = await bcrypt.hash(password, salt);
 
+        const newRestaurantDetails = {
+            restaurantName: restaurantName || `${name}'s Restaurant`,
+            address: {
+                city: address || 'Kathmandu',
+                street: '',
+                area: '',
+                coordinates: { lat: 27.7172, lng: 85.3240 }
+            },
+            cuisine: cuisine ? cuisine.split(',').map(c => c.trim()) : [],
+            phone: phone || '',
+            isActive: true,
+            isApproved: true // Admin created restaurants are auto-approved
+        };
+
         user = new User({
             name,
             email,
             passwordHash,
             role: 'restaurant',
-            restaurantDetails: {
-                restaurantName: restaurantName || `${name}'s Restaurant`,
-                address: {
-                    city: address || 'Kathmandu',
-                    street: '',
-                    area: ''
-                },
-                cuisine: cuisine ? cuisine.split(',').map(c => c.trim()) : [],
-                phone: phone || '',
-                isActive: true,
-                isApproved: true // Admin created restaurants are auto-approved
-            }
+            restaurantDetails: newRestaurantDetails
         });
 
         await user.save();
+
+        // Create Restaurant Document
+        await Restaurant.create({
+            userId: user._id,
+            restaurantName: newRestaurantDetails.restaurantName,
+            address: newRestaurantDetails.address,
+            phone: newRestaurantDetails.phone,
+            cuisine: newRestaurantDetails.cuisine,
+            isActive: true, // Default to true for admin created
+            isApproved: true // Default to true for admin created
+        });
+
         res.status(201).json({ message: 'Restaurant created successfully', user });
     } catch (err) {
+        console.error('Create Restaurant Error:', err);
         res.status(500).json({ message: 'Server Error', error: err.message });
     }
 });
+
+// PUT /api/admin/restaurants/:id - Update Restaurant
+router.put('/restaurants/:id', auth, adminAuth, async (req, res) => {
+    try {
+        const { restaurantName, address, cuisine, phone, email, name } = req.body;
+
+        // Find user by ID (params.id is userId for admin management usually)
+        let user = await User.findById(req.params.id);
+        if (!user) return res.status(404).json({ message: 'Restaurant User not found' });
+
+        // Update User Model
+        if (name) user.name = name;
+        if (email) user.email = email;
+
+        await user.save();
+
+        // Sync with Restaurant Collection
+        let restaurant = await Restaurant.findOne({ userId: user._id });
+        if (restaurant) {
+            if (restaurantName) restaurant.restaurantName = restaurantName;
+            if (address) {
+                if (typeof address === 'string') {
+                    restaurant.address.city = address;
+                } else {
+                    restaurant.address = { ...restaurant.address, ...address };
+                }
+            }
+            if (cuisine) restaurant.cuisine = user.restaurantDetails.cuisine;
+            if (phone) restaurant.phone = phone;
+            if (email) restaurant.email = email; // Optional if Restaurant model has email
+            await restaurant.save();
+        } else {
+            // Create if missing (self-healing)
+            await Restaurant.create({
+                userId: user._id,
+                restaurantName: user.restaurantDetails.restaurantName,
+                address: user.restaurantDetails.address,
+                phone: user.restaurantDetails.phone,
+                cuisine: user.restaurantDetails.cuisine,
+                isActive: user.restaurantDetails.isActive,
+                isApproved: user.restaurantDetails.isApproved
+            });
+        }
+
+        res.json(user);
+    } catch (err) {
+        console.error('Update Restaurant Error:', err);
+        res.status(500).json({ message: 'Server Error', error: err.message });
+    }
+});
+
+// DELETE /api/admin/restaurants/:id - Delete Restaurant
+router.delete('/restaurants/:id', auth, adminAuth, async (req, res) => {
+    try {
+        const user = await User.findById(req.params.id);
+        if (!user) {
+            return res.status(404).json({ message: 'Restaurant not found' });
+        }
+
+        // Delete from Restaurant collection
+        await Restaurant.findOneAndDelete({ userId: user._id });
+
+        // Delete Products associated? (Optional, but good cleanup)
+        // For now, let's keep products but maybe orphan them or cascading delete is better.
+        // Let's delete them to check cleanliness. 
+        // await Product.deleteMany({ restaurantId: user._id }); // Assuming product has restaurantId ref to User or Restaurant?
+        // Checking Product model... restaurantId is Ref to 'Restaurant' usually, but waiting for confirmation.
+        // Based on logic above, we should find the Restaurant doc _id first if we were to delete products.
+        // Simplicity: Just delete User and Restaurant doc.
+
+        // Delete User
+        await User.findByIdAndDelete(req.params.id);
+
+        res.json({ message: 'Restaurant deleted successfully' });
+    } catch (err) {
+        console.error('Delete Restaurant Error:', err);
+        res.status(500).json({ message: 'Server Error', error: err.message });
+    }
+});
+
 
 // DELETE /api/admin/users/:id - Delete User
 router.delete('/users/:id', auth, adminAuth, async (req, res) => {

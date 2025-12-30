@@ -14,11 +14,13 @@ const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_dev';
 router.post('/signup', async (req, res) => {
   try {
     const { name, email, password, phoneNumber, role, restaurantDetails } = req.body;
+    console.log('Signup Attempt:', { name, email, phoneNumber, role, restaurantDetails }); // Log payload
 
     // Check if user exists
     let user = await User.findOne({ email });
     if (user) {
       if (!user.emailVerified && !user.phoneVerified) {
+        console.log(`Signup failed: User ${email} exists but unverified`);
         return res.status(409).json({
           message: 'User already exists but is not verified.',
           unverified: true,
@@ -29,6 +31,7 @@ router.post('/signup', async (req, res) => {
           }
         });
       }
+      console.log(`Signup failed: User ${email} already exists`);
       return res.status(400).json({ message: 'User already exists' });
     }
 
@@ -54,12 +57,12 @@ router.post('/signup', async (req, res) => {
 
     await user.save();
 
-    // Send verification email (Fire-and-forget)
-    sendVerificationEmail(email, name, verificationToken).catch(err => console.error('Background Email Error:', err));
+    // Send verification email (Fire-and-forget) - REMOVED per user request
+    // sendVerificationEmail(email, name, verificationToken).catch(err => console.error('Background Email Error:', err));
 
     res.status(201).json({
-      message: 'Registration successful! Please check your email to verify your account.',
-      emailSent: true
+      message: 'Registration successful! Please verify your account using OTP.',
+      emailSent: false
     });
   } catch (err) {
     console.error('Signup error:', err);
@@ -73,10 +76,16 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!user) {
+      console.log(`Login failed: User not found for email ${email}`);
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
-    if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!isMatch) {
+      console.log(`Login failed: Invalid password for email ${email}`);
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
 
     // Check verification
     if (!user.emailVerified && !user.phoneVerified) {
@@ -90,7 +99,20 @@ router.post('/login', async (req, res) => {
 
     const token = jwt.sign({ userId: user._id, role: user.role, isAdmin: user.isAdmin }, JWT_SECRET, { expiresIn: '1d' });
 
-    res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role, isAdmin: user.isAdmin, profileImage: user.profileImage } });
+    const isApproved = user.role === 'restaurant' ? (user.restaurantDetails?.isApproved || false) : true;
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isAdmin: user.isAdmin,
+        profileImage: user.profileImage,
+        isApproved
+      }
+    });
   } catch (err) {
     res.status(500).json({ message: 'Server Error', error: err.message });
   }
