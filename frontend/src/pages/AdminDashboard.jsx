@@ -136,8 +136,9 @@ const AdminDashboard = () => {
     const restaurantMap = useMemo(() => {
         const map = {};
         restaurants.forEach(r => {
-            if (r.restaurantName) {
-                map[r._id] = r.restaurantName;
+            const name = r.restaurantDetails?.restaurantName || r.restaurantName;
+            if (name) {
+                map[r._id] = name;
             }
         });
         return map;
@@ -899,7 +900,7 @@ const AdminDashboard = () => {
                                                         <option value="">Select Restaurant</option>
                                                         {restaurants.map(r => (
                                                             <option key={r._id} value={r._id}>
-                                                                {r.restaurantName || 'Unnamed'}
+                                                                {r.restaurantDetails?.restaurantName || 'Unnamed'}
                                                             </option>
                                                         ))}
                                                     </select>
@@ -1024,7 +1025,7 @@ const AdminDashboard = () => {
                                             <option value="">Select Restaurant</option>
                                             {restaurants.map(r => (
                                                 <option key={r._id} value={r._id}>
-                                                    {r.restaurantName || 'Unnamed'}
+                                                    {r.restaurantDetails?.restaurantName || 'Unnamed'}
                                                 </option>
                                             ))}
                                         </select>

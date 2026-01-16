@@ -22,7 +22,7 @@ frontend/
 ### Prerequisites
 
 - Node.js (v14+)
-- Backend server running on port 5000 (default)
+- Backend server running on port 5050 (default)
 
 ### Installation
 
@@ -35,7 +35,7 @@ frontend/
     npm install
     ```
 3.  Configure Environment:
-    - Ensure `src/services/api.js` points to your backend URL (default: `http://localhost:5000/api`)
+    - Ensure `src/services/api.js` points to your backend URL (default: `http://localhost:5050/api`)
 
 ### Running the App
 

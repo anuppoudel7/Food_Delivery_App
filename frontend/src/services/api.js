@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const api = axios.create({
     // Use localhost for local development, or your computer's IP address for mobile testing
-    baseURL: 'http://localhost:5000/api',
+    baseURL: 'http://localhost:5050/api',
     headers: {
         'Content-Type': 'application/json',
     },

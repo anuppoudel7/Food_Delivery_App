@@ -41,7 +41,7 @@ backend/
     - Copy `.env.example` to `.env`
     - Update the values:
         ```env
-        PORT=5000
+        PORT=5050
         MONGO_URI=mongodb://localhost:27017/food-delivery-mvp
         JWT_SECRET=your_secret_key
         EMAIL_USER=your_email@gmail.com
